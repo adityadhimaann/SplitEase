@@ -4,8 +4,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Users, ArrowRightLeft, UserPlus, UserMinus, Receipt } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { getGroupBalances } from "@/lib/algorithms/calculateBalances";
+import { redirect } from "next/navigation";
 
-export default function GroupDetailPage({ params }: { params: { id: string } }) {
+export default async function GroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const data = await getGroupBalances(id);
+
+  if (!data) {
+    redirect("/dashboard");
+  }
+
+  const { group, expenses, settlements, transactions, balances } = data;
+
   return (
     <div className="space-y-8">
       {/* Group Header */}
@@ -15,12 +26,12 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
             <Users className="h-8 w-8" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Flatmates</h1>
-            <p className="text-slate-500">Created 2 months ago • 4 Members</p>
+            <h1 className="text-3xl font-bold text-slate-900">{group.name}</h1>
+            <p className="text-slate-500">Created {new Date(group.createdAt).toLocaleDateString()} • {group.members.length} Members</p>
           </div>
         </div>
         <div className="flex gap-3">
-          <Link href={`/expenses/new?group=${params.id}`}>
+          <Link href={`/expenses/new?group=${group.id}`}>
             <Button className="gap-2 bg-indigo-600 hover:bg-indigo-700">
               <Plus className="h-4 w-4" /> Add Expense
             </Button>
@@ -46,27 +57,28 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                 <CardDescription>All shared expenses in this group</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {[
-                  { id: 1, desc: "March Rent", amount: "₹45,000.00", date: "Mar 1", paidBy: "Aisha", split: "Equal" },
-                  { id: 2, desc: "Groceries", amount: "₹2,300.00", date: "Mar 5", paidBy: "Rohan", split: "Percentage" },
-                  { id: 3, desc: "Internet", amount: "₹1,200.00", date: "Mar 10", paidBy: "Priya", split: "Equal" },
-                ].map((expense) => (
-                  <div key={expense.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
-                        <Receipt className="h-5 w-5 text-slate-500" />
+                {expenses.length === 0 ? (
+                  <p className="text-slate-500">No expenses yet.</p>
+                ) : expenses.map((expense) => {
+                  const payerName = group.members.find(m => m.userId === expense.payerId)?.user.name;
+                  return (
+                    <div key={expense.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors cursor-pointer">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
+                          <Receipt className="h-5 w-5 text-slate-500" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-900">{expense.description}</p>
+                          <p className="text-sm text-slate-500">Paid by {payerName} on {new Date(expense.date).toLocaleDateString()}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-slate-900">{expense.desc}</p>
-                        <p className="text-sm text-slate-500">Paid by {expense.paidBy} on {expense.date}</p>
+                      <div className="text-right">
+                        <p className="font-medium">₹{expense.amount.toFixed(2)}</p>
+                        <Badge variant="outline" className="mt-1">{expense.splits[0]?.splitType || "EQUAL"}</Badge>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">{expense.amount}</p>
-                      <Badge variant="outline" className="mt-1">{expense.split}</Badge>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           </TabsContent>
@@ -76,30 +88,44 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
             <Card>
               <CardHeader>
                 <CardTitle>Debt Minimization Summary</CardTitle>
-                <CardDescription>Optimized minimum transactions needed to settle all debts.</CardDescription>
+                <CardDescription>Optimized minimum transactions needed to settle all debts (Aisha's Requirement).</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {[
-                  { id: 1, from: "Rohan", to: "Aisha", amount: "₹12,400.00" },
-                  { id: 2, from: "Priya", to: "Aisha", amount: "₹8,200.00" },
-                  { id: 3, from: "Sam", to: "Rohan", amount: "₹1,100.00" },
-                ].map((debt) => (
-                  <div key={debt.id} className="flex items-center justify-between p-4 border rounded-lg">
+                {transactions.length === 0 ? (
+                  <p className="text-slate-500">All debts are settled!</p>
+                ) : transactions.map((debt, idx) => (
+                  <div key={idx} className="flex items-center justify-between p-4 border rounded-lg">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium">{debt.from}</span>
+                        <span className="font-medium text-rose-600">{debt.payer?.name}</span>
                         <ArrowRightLeft className="h-4 w-4 text-slate-400 mx-2" />
-                        <span className="font-medium">{debt.to}</span>
+                        <span className="font-medium text-emerald-600">{debt.payee?.name}</span>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <span className="font-bold text-lg">{debt.amount}</span>
+                      <span className="font-bold text-lg">₹{debt.amount.toFixed(2)}</span>
                       <Button variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100">
-                        Settle Up
+                        Mark as Settled
                       </Button>
                     </div>
                   </div>
                 ))}
+
+                {balances.length > 0 && (
+                  <div className="mt-8 pt-8 border-t">
+                    <h3 className="font-semibold mb-4 text-slate-900">Individual Net Balances (Time-Scoped)</h3>
+                    <div className="space-y-2">
+                      {balances.map((b, idx) => (
+                        <div key={idx} className="flex justify-between items-center text-sm">
+                          <span>{b.user?.name}</span>
+                          <span className={`font-medium ${b.balance > 0 ? 'text-emerald-600' : b.balance < 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                            {b.balance > 0 ? '+' : ''}₹{b.balance.toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -112,15 +138,23 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                 <CardDescription>Record of all payments made between members.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-4 border rounded-lg opacity-70">
-                  <div>
-                    <p className="font-medium text-slate-900">Priya paid Aisha</p>
-                    <p className="text-sm text-slate-500">Feb 28 • Bank Transfer</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-emerald-600">₹5,000.00</p>
-                  </div>
-                </div>
+                {settlements.length === 0 ? (
+                  <p className="text-slate-500">No settlements yet.</p>
+                ) : settlements.map((s) => {
+                  const payer = group.members.find(m => m.userId === s.payerId)?.user.name;
+                  const payee = group.members.find(m => m.userId === s.payeeId)?.user.name;
+                  return (
+                    <div key={s.id} className="flex items-center justify-between p-4 border rounded-lg opacity-70">
+                      <div>
+                        <p className="font-medium text-slate-900">{payer} paid {payee}</p>
+                        <p className="text-sm text-slate-500">{new Date(s.date).toLocaleDateString()}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-emerald-600">₹{s.amount.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
           </TabsContent>
@@ -138,31 +172,29 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
                 </Button>
               </CardHeader>
               <CardContent className="space-y-4">
-                {[
-                  { name: "Aisha", joined: "Jan 1, 2024", active: true },
-                  { name: "Rohan", joined: "Jan 1, 2024", active: true },
-                  { name: "Priya", joined: "Feb 15, 2024", active: true },
-                  { name: "Meera", joined: "Jan 1, 2024", left: "Mar 31, 2024", active: false },
-                ].map((member, i) => (
-                  <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-full flex items-center justify-center font-medium ${member.active ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
-                        {member.name.charAt(0)}
+                {group.members.map((member, i) => {
+                  const active = !member.leftAt;
+                  return (
+                    <div key={i} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className={`h-10 w-10 rounded-full flex items-center justify-center font-medium ${active ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500'}`}>
+                          {member.user.name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className={`font-medium ${active ? 'text-slate-900' : 'text-slate-500 line-through'}`}>{member.user.name}</p>
+                          <p className="text-xs text-slate-500">
+                            Joined {new Date(member.joinedAt).toLocaleDateString()} {member.leftAt && `• Left ${new Date(member.leftAt).toLocaleDateString()}`}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className={`font-medium ${member.active ? 'text-slate-900' : 'text-slate-500 line-through'}`}>{member.name}</p>
-                        <p className="text-xs text-slate-500">
-                          Joined {member.joined} {member.left && `• Left ${member.left}`}
-                        </p>
-                      </div>
+                      {active && (
+                        <Button variant="ghost" size="icon" className="text-rose-500 hover:text-rose-700 hover:bg-rose-50">
+                          <UserMinus className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                    {member.active && (
-                      <Button variant="ghost" size="icon" className="text-rose-500 hover:text-rose-700 hover:bg-rose-50">
-                        <UserMinus className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </CardContent>
             </Card>
           </TabsContent>
