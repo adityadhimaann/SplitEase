@@ -2,8 +2,63 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Upload, Users } from "lucide-react";
 import Link from "next/link";
+import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
+import { redirect } from "next/navigation";
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const groups = await prisma.group.findMany({
+    where: { members: { some: { userId: user.id } } },
+    include: { members: true },
+  });
+
+  const recentExpenses = await prisma.expense.findMany({
+    where: { groupId: { in: groups.map(g => g.id) } },
+    orderBy: { date: "desc" },
+    take: 5,
+    include: { group: true, splits: true, payer: true },
+  });
+
+  // Calculate totals
+  let totalYouOwe = 0;
+  let totalOwedToYou = 0;
+
+  const groupBalances = groups.map(group => {
+    let groupBalance = 0;
+    const groupExpenses = recentExpenses.filter(e => e.groupId === group.id);
+    
+    groupExpenses.forEach(expense => {
+      if (expense.payerId === user.id) {
+        // You paid, so you are owed money by others
+        expense.splits.forEach(split => {
+          if (split.userId !== user.id) {
+            totalOwedToYou += split.amountOwed;
+            groupBalance += split.amountOwed;
+          }
+        });
+      } else {
+        // Someone else paid, do you owe them?
+        const mySplit = expense.splits.find(s => s.userId === user.id);
+        if (mySplit) {
+          totalYouOwe += mySplit.amountOwed;
+          groupBalance -= mySplit.amountOwed;
+        }
+      }
+    });
+
+    return {
+      ...group,
+      balance: groupBalance,
+      color: groupBalance > 0 ? "text-emerald-500" : groupBalance < 0 ? "text-rose-500" : "text-slate-500",
+      formattedBalance: groupBalance > 0 ? `+₹${groupBalance.toFixed(2)}` : groupBalance < 0 ? `-₹${Math.abs(groupBalance).toFixed(2)}` : "Settled"
+    };
+  });
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
@@ -34,19 +89,19 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total you owe</CardDescription>
-            <CardTitle className="text-3xl text-rose-500 font-bold">₹1,200.00</CardTitle>
+            <CardTitle className="text-3xl text-rose-500 font-bold">₹{totalYouOwe.toFixed(2)}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total owed to you</CardDescription>
-            <CardTitle className="text-3xl text-emerald-500 font-bold">₹3,450.00</CardTitle>
+            <CardTitle className="text-3xl text-emerald-500 font-bold">₹{totalOwedToYou.toFixed(2)}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Active Groups</CardDescription>
-            <CardTitle className="text-3xl text-slate-900 font-bold">3</CardTitle>
+            <CardTitle className="text-3xl text-slate-900 font-bold">{groups.length}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -58,28 +113,45 @@ export default function DashboardPage() {
             <CardDescription>Your latest expenses across all groups</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Mock recent activity */}
-            {[
-              { id: 1, desc: "Dinner at Taj", group: "Goa Trip", amount: "₹4,500.00", date: "Today, 8:30 PM", youPaid: false, color: "text-rose-500", text: "You owe ₹1,500" },
-              { id: 2, desc: "Groceries", group: "Flatmates", amount: "₹1,200.00", date: "Yesterday", youPaid: true, color: "text-emerald-500", text: "You lent ₹800" },
-              { id: 3, desc: "Electricity Bill", group: "Flatmates", amount: "₹3,000.00", date: "Oct 10", youPaid: false, color: "text-rose-500", text: "You owe ₹1,000" },
-            ].map((activity) => (
-              <div key={activity.id} className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
-                    <span className="text-slate-500 font-medium">{activity.desc.charAt(0)}</span>
+            {recentExpenses.length === 0 ? (
+              <p className="text-slate-500">No recent activity.</p>
+            ) : (
+              recentExpenses.map((activity) => {
+                const youPaid = activity.payerId === user.id;
+                const mySplit = activity.splits.find(s => s.userId === user.id);
+                let text = "";
+                let color = "";
+                
+                if (youPaid) {
+                  text = `You lent ₹${(activity.amount - (mySplit?.amountOwed || 0)).toFixed(2)}`;
+                  color = "text-emerald-500";
+                } else if (mySplit) {
+                  text = `You owe ₹${mySplit.amountOwed.toFixed(2)}`;
+                  color = "text-rose-500";
+                } else {
+                  text = "Not involved";
+                  color = "text-slate-500";
+                }
+
+                return (
+                  <div key={activity.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
+                        <span className="text-slate-500 font-medium">{activity.description.charAt(0)}</span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-900">{activity.description}</p>
+                        <p className="text-sm text-slate-500">{activity.group.name} • {new Date(activity.date).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-medium">₹{activity.amount.toFixed(2)}</p>
+                      <p className={`text-sm ${color}`}>{text}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-slate-900">{activity.desc}</p>
-                    <p className="text-sm text-slate-500">{activity.group} • {activity.date}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-medium">{activity.amount}</p>
-                  <p className={`text-sm ${activity.color}`}>{activity.text}</p>
-                </div>
-              </div>
-            ))}
+                );
+              })
+            )}
           </CardContent>
         </Card>
 
@@ -89,29 +161,28 @@ export default function DashboardPage() {
             <CardDescription>Groups you are a part of</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Mock groups */}
-            {[
-              { id: 1, name: "Flatmates", members: 3, balance: "-₹200.00", color: "text-rose-500" },
-              { id: 2, name: "Goa Trip", members: 5, balance: "+₹1,450.00", color: "text-emerald-500" },
-              { id: 3, name: "Office Lunch", members: 4, balance: "Settled", color: "text-slate-500" },
-            ].map((group) => (
-              <div key={group.id} className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
-                    <Users className="h-5 w-5" />
+            {groupBalances.length === 0 ? (
+              <p className="text-slate-500">You are not in any groups yet.</p>
+            ) : (
+              groupBalances.map((group) => (
+                <div key={group.id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-10 w-10 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
+                      <Users className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <Link href={`/groups/${group.id}`} className="font-medium text-slate-900 hover:underline">
+                        {group.name}
+                      </Link>
+                      <p className="text-sm text-slate-500">{group.members.length} members</p>
+                    </div>
                   </div>
-                  <div>
-                    <Link href={`/groups/${group.id}`} className="font-medium text-slate-900 hover:underline">
-                      {group.name}
-                    </Link>
-                    <p className="text-sm text-slate-500">{group.members} members</p>
+                  <div className={`font-medium ${group.color}`}>
+                    {group.formattedBalance}
                   </div>
                 </div>
-                <div className={`font-medium ${group.color}`}>
-                  {group.balance}
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </CardContent>
         </Card>
       </div>
