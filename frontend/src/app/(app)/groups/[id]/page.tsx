@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { getGroupBalances } from "@/lib/algorithms/calculateBalances";
 import { redirect } from "next/navigation";
 import { AddMemberButton } from "@/components/AddMemberButton";
+import { SettleDebtButton } from "@/components/SettleDebtButton";
 
 export default async function GroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -105,9 +106,12 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="font-bold text-lg">₹{debt.amount.toFixed(2)}</span>
-                      <Button variant="outline" className="bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100">
-                        Mark as Settled
-                      </Button>
+                      <SettleDebtButton 
+                        groupId={group.id}
+                        payerId={debt.payerId}
+                        payeeId={debt.payeeId}
+                        amount={debt.amount}
+                      />
                     </div>
                   </div>
                 ))}
