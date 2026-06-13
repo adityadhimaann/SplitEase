@@ -42,21 +42,22 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {/* Tabs Layout */}
-      <Tabs defaultValue="expenses" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-2xl bg-white border h-12">
-          <TabsTrigger value="expenses">Expenses</TabsTrigger>
+      <Tabs defaultValue="balances" className="w-full">
+        <TabsList className="grid w-full grid-cols-5 max-w-4xl bg-white border h-12">
           <TabsTrigger value="balances">Balances</TabsTrigger>
+          <TabsTrigger value="settle">Settle up</TabsTrigger>
+          <TabsTrigger value="breakdown">Breakdown</TabsTrigger>
           <TabsTrigger value="settlements">Settlements</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
         </TabsList>
 
         <div className="mt-6">
-          {/* Expenses Tab */}
-          <TabsContent value="expenses" className="space-y-4">
+          {/* Breakdown Tab */}
+          <TabsContent value="breakdown" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle>Recent Expenses</CardTitle>
-                <CardDescription>All shared expenses in this group</CardDescription>
+                <CardTitle>Breakdown</CardTitle>
+                <CardDescription>Every expense that makes up the group balances.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {expenses.length === 0 ? (
@@ -89,8 +90,34 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
           <TabsContent value="balances">
             <Card>
               <CardHeader>
-                <CardTitle>Debt Minimization Summary</CardTitle>
-                <CardDescription>Optimized minimum transactions needed to settle all debts (Aisha's Requirement).</CardDescription>
+                <CardTitle>Net Balances</CardTitle>
+                <CardDescription>Net total owed per person.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {balances.length === 0 ? (
+                  <p className="text-slate-500">No balances calculated.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {balances.map((b, idx) => (
+                      <div key={idx} className="flex justify-between items-center text-lg p-4 border rounded-lg">
+                        <span className="font-medium text-slate-900">{b.user?.name}</span>
+                        <span className={`font-bold ${b.balance > 0 ? 'text-emerald-600' : b.balance < 0 ? 'text-rose-600' : 'text-slate-500'}`}>
+                          {b.balance > 0 ? '+' : ''}₹{b.balance.toFixed(2)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Settle Up Tab */}
+          <TabsContent value="settle">
+            <Card>
+              <CardHeader>
+                <CardTitle>Settle Up</CardTitle>
+                <CardDescription>Optimized minimum transactions needed to settle all debts.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 {transactions.length === 0 ? (
@@ -116,21 +143,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
                   </div>
                 ))}
 
-                {balances.length > 0 && (
-                  <div className="mt-8 pt-8 border-t">
-                    <h3 className="font-semibold mb-4 text-slate-900">Individual Net Balances (Time-Scoped)</h3>
-                    <div className="space-y-2">
-                      {balances.map((b, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-sm">
-                          <span>{b.user?.name}</span>
-                          <span className={`font-medium ${b.balance > 0 ? 'text-emerald-600' : b.balance < 0 ? 'text-rose-600' : 'text-slate-500'}`}>
-                            {b.balance > 0 ? '+' : ''}₹{b.balance.toFixed(2)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+
               </CardContent>
             </Card>
           </TabsContent>

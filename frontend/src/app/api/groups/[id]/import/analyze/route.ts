@@ -29,7 +29,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const rows = parsed.data as any[];
 
     const analyzedRows = rows.map((row, index) => {
-      const anomalies: string[] = [];
+      const anomalies: { type: "critical" | "warning" | "info", message: string }[] = [];
       const csvDate = row.Date || row.date;
       const csvAmount = row.Amount || row.amount;
       const csvPaidBy = row.PaidBy || row.paid_by;
@@ -52,23 +52,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       );
 
       if (!member) {
-        anomalies.push(`Member "${csvPaidBy}" not found in group`);
+        anomalies.push({ type: "critical", message: `Member "${csvPaidBy}" not found in group` });
       } else {
         // Check date conflict (Meera's Req)
-        if (date < new Date(member.joinedAt)) anomalies.push(`Date ${csvDate} is before member joined`);
-        if (member.leftAt && date > new Date(member.leftAt)) anomalies.push(`Date ${csvDate} is after member left`);
+        if (date < new Date(member.joinedAt)) anomalies.push({ type: "critical", message: `Date ${csvDate} is before member joined` });
+        if (member.leftAt && date > new Date(member.leftAt)) anomalies.push({ type: "critical", message: `Date ${csvDate} is after member left` });
       }
 
       // Check amount
       if (isNaN(amount)) {
-        anomalies.push(`Invalid amount: ${csvAmount}`);
+        anomalies.push({ type: "warning", message: `Invalid amount: ${csvAmount}` });
       } else if (amount < 0) {
-        anomalies.push(`Negative amount detected`);
+        anomalies.push({ type: "warning", message: `Negative amount detected` });
+      } else if (amount > 10000) {
+        anomalies.push({ type: "info", message: `Unusually large expense amount` });
       }
 
       // Check currency (Priya's Req)
       if (currency.toUpperCase() !== "INR") {
-        anomalies.push(`Foreign currency (${currency}) requires conversion`);
+        anomalies.push({ type: "warning", message: `Foreign currency (${currency}) requires conversion` });
       }
 
       // Check duplicates (Meera's Req)
@@ -80,7 +82,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       );
 
       if (isDuplicate) {
-        anomalies.push(`Possible duplicate expense`);
+        anomalies.push({ type: "warning", message: `Possible duplicate expense` });
       }
 
       return {
