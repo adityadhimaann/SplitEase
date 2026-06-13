@@ -25,6 +25,18 @@ export default async function DashboardPage() {
     include: { group: true, splits: true, payer: true },
   });
 
+  const recentSettlements = await prisma.settlement.findMany({
+    where: { groupId: { in: groups.map(g => g.id) } },
+    orderBy: { date: "desc" },
+    take: 5,
+    include: { group: true, payer: true, payee: true },
+  });
+
+  const allActivity = [
+    ...recentExpenses.map(e => ({ type: "expense" as const, date: e.date, data: e })),
+    ...recentSettlements.map(s => ({ type: "settlement" as const, date: s.date, data: s }))
+  ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 5);
+
   // Calculate totals
   let totalYouOwe = 0;
   let totalOwedToYou = 0;
@@ -98,46 +110,85 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Your latest expenses across all groups</CardDescription>
+            <CardDescription>Your latest activity across all groups</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            {recentExpenses.length === 0 ? (
+            {allActivity.length === 0 ? (
               <p className="text-slate-500">No recent activity.</p>
             ) : (
-              recentExpenses.map((activity) => {
-                const youPaid = activity.payerId === user.id;
-                const mySplit = activity.splits.find(s => s.userId === user.id);
-                let text = "";
-                let color = "";
-                
-                if (youPaid) {
-                  text = `You lent ₹${(activity.amount - (mySplit?.amountOwed || 0)).toFixed(2)}`;
-                  color = "text-emerald-500";
-                } else if (mySplit) {
-                  text = `You owe ₹${mySplit.amountOwed.toFixed(2)}`;
-                  color = "text-rose-500";
-                } else {
-                  text = "Not involved";
-                  color = "text-slate-500";
-                }
+              allActivity.map((item) => {
+                if (item.type === "expense") {
+                  const activity = item.data;
+                  const youPaid = activity.payerId === user.id;
+                  const mySplit = activity.splits.find(s => s.userId === user.id);
+                  let text = "";
+                  let color = "";
+                  
+                  if (youPaid) {
+                    text = `You lent ₹${(activity.amount - (mySplit?.amountOwed || 0)).toFixed(2)}`;
+                    color = "text-emerald-500";
+                  } else if (mySplit) {
+                    text = `You owe ₹${mySplit.amountOwed.toFixed(2)}`;
+                    color = "text-rose-500";
+                  } else {
+                    text = "Not involved";
+                    color = "text-slate-500";
+                  }
 
-                return (
-                  <div key={activity.id} className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
-                        <span className="text-slate-500 font-medium">{activity.description.charAt(0)}</span>
+                  return (
+                    <div key={`expense-${activity.id}`} className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
+                          <span className="text-slate-500 font-medium">{activity.description.charAt(0)}</span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-900">{activity.description}</p>
+                          <p className="text-sm text-slate-500">{activity.group.name} • {new Date(activity.date).toLocaleDateString()}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-slate-900">{activity.description}</p>
-                        <p className="text-sm text-slate-500">{activity.group.name} • {new Date(activity.date).toLocaleDateString()}</p>
+                      <div className="text-right">
+                        <p className="font-medium">₹{activity.amount.toFixed(2)}</p>
+                        <p className={`text-sm ${color}`}>{text}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-medium">₹{activity.amount.toFixed(2)}</p>
-                      <p className={`text-sm ${color}`}>{text}</p>
+                  );
+                } else {
+                  const settlement = item.data;
+                  const youPaid = settlement.payerId === user.id;
+                  const youReceived = settlement.payeeId === user.id;
+                  
+                  let text = "";
+                  let color = "";
+                  
+                  if (youPaid) {
+                    text = `You paid ${settlement.payee.name}`;
+                    color = "text-emerald-500";
+                  } else if (youReceived) {
+                    text = `${settlement.payer.name} paid you`;
+                    color = "text-emerald-500";
+                  } else {
+                    text = `${settlement.payer.name} paid ${settlement.payee.name}`;
+                    color = "text-slate-500";
+                  }
+
+                  return (
+                    <div key={`settlement-${settlement.id}`} className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center">
+                          <span className="text-emerald-600 font-medium">₹</span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-900">Payment</p>
+                          <p className="text-sm text-slate-500">{settlement.group.name} • {new Date(settlement.date).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">₹{settlement.amount.toFixed(2)}</p>
+                        <p className={`text-sm ${color}`}>{text}</p>
+                      </div>
                     </div>
-                  </div>
-                );
+                  );
+                }
               })
             )}
           </CardContent>
