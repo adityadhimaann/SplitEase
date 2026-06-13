@@ -46,7 +46,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           amountInINR = amountInINR * MOCK_USD_TO_INR_RATE;
         }
 
-        const date = new Date(row.date);
+        let date = new Date(row.date);
+        if (isNaN(date.getTime())) {
+          // try DD-MM-YYYY
+          const parts = String(row.date).split("-");
+          if (parts.length === 3) {
+            date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+          }
+        }
 
         // Find active members for this date
         const activeMembers = group.members.filter(m => {
