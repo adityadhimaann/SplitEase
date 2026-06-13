@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-for-local-dev";
+export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
   try {
