@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+export const dynamic = "force-dynamic";
 import { getCurrentUser } from "@/lib/auth";
 import { getGroupBalances } from "@/lib/algorithms/calculateBalances";
 
