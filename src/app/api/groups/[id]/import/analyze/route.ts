@@ -261,9 +261,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           const descB = (b.description || "").toLowerCase().replace(/[^a-z]/g, '');
           
           // Check if core words overlap significantly
-          const wordsA = new Set((a.description || "").toLowerCase().split(/\s+/));
-          const wordsB = new Set((b.description || "").toLowerCase().split(/\s+/));
-          const overlap = [...wordsA].filter((w: string) => wordsB.has(w) && w.length > 2).length;
+          const wordsA: Set<string> = new Set((a.description || "").toLowerCase().split(/\s+/));
+          const wordsB: Set<string> = new Set((b.description || "").toLowerCase().split(/\s+/));
+          const overlap = [...wordsA].filter(w => wordsB.has(w) && w.length > 2).length;
           
           if (overlap >= 1 && (descA.includes(descB.substring(0, 5)) || descB.includes(descA.substring(0, 5)))) {
             const msg = `Possible duplicate of Row ${i + 1} ("${a.description}") with different amount — verify which is correct`;
