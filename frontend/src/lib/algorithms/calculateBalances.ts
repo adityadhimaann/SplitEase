@@ -57,7 +57,7 @@ export async function getGroupBalances(groupId: string) {
     userBalances.push({ userId, balance: Math.round(balance * 100) / 100 });
   }
 
-  const optimalTransactions = minimizeDebt(userBalances);
+  const optimalTransactions = minimizeDebt(userBalances.map(b => ({ ...b })));
 
   const enrichedTransactions = optimalTransactions.map(t => ({
     ...t,
