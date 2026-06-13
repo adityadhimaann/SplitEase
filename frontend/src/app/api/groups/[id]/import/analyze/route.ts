@@ -37,7 +37,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const csvDescription = row.Description || row.description;
       const csvSplitType = row.SplitType || row.split_type;
 
-      const date = new Date(csvDate);
+      let date = new Date(csvDate);
+      if (csvDate && csvDate.includes("-")) {
+        const parts = csvDate.split("-");
+        if (parts.length === 3 && parts[2].length === 4) {
+          date = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+        } else if (parts.length === 2) {
+          // Handle cases like Mar-14 (assuming current year or explicit format)
+          date = new Date(`${csvDate}-2026`);
+        }
+      }
       let amountStr = String(csvAmount || "").replace(/,/g, '');
       const hasDollar = amountStr.includes('$');
       if (hasDollar) amountStr = amountStr.replace('$', '');
