@@ -84,6 +84,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
 
       return createdExpenses;
+    }, {
+      timeout: 30000,
     });
 
     return NextResponse.json({ success: true, count: results.length });
