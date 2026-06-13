@@ -134,7 +134,9 @@ export default function ImportPage() {
               <label className="block text-sm font-medium text-slate-700 mb-2">Select Target Group</label>
               <Select value={selectedGroupId} onValueChange={(v) => setSelectedGroupId(v || "")}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a group..." />
+                  <SelectValue placeholder="Choose a group...">
+                    {groups.find(g => g.id === selectedGroupId)?.name}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {groups.map(g => (
