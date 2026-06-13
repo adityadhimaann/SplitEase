@@ -28,6 +28,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
     const rows = parsed.data as any[];
 
+    console.log("--- ANALYZE IMPORT DEBUG ---");
+    console.log("File Name:", file.name, "File Size:", file.size);
+    console.log("First 100 chars of text:", text.substring(0, 100));
+    console.log("Parsed Rows Count:", rows.length);
+    console.log("First Row Keys:", rows.length > 0 ? Object.keys(rows[0]) : "No rows");
+    console.log("First Row Data:", rows[0]);
+    console.log("----------------------------");
+
     const analyzedRows = rows.map((row, index) => {
       const anomalies: string[] = [];
       const csvDate = row.Date || row.date;
@@ -52,11 +60,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       );
 
       if (!member) {
-        anomalies.push(`Member "${row.PaidBy}" not found in group`);
+        anomalies.push(`Member "${csvPaidBy}" not found in group`);
       } else {
         // Check date conflict (Meera's Req)
-        if (date < new Date(member.joinedAt)) anomalies.push(`Date ${row.Date} is before member joined`);
-        if (member.leftAt && date > new Date(member.leftAt)) anomalies.push(`Date ${row.Date} is after member left`);
+        if (date < new Date(member.joinedAt)) anomalies.push(`Date ${csvDate} is before member joined`);
+        if (member.leftAt && date > new Date(member.leftAt)) anomalies.push(`Date ${csvDate} is after member left`);
       }
 
       // Check amount
