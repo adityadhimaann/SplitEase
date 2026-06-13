@@ -96,6 +96,19 @@ export default function ImportPage() {
     }));
   };
 
+  const handleAutoResolveAll = () => {
+    setAnalyzedRows(prev => prev.map(r => {
+      if (r.status === "flagged" && r.userAction === undefined) {
+        if (r.anomalies.some(a => a.type === "critical")) {
+          return { ...r, userAction: "skipped" };
+        } else {
+          return { ...r, userAction: "approved" };
+        }
+      }
+      return r;
+    }));
+  };
+
   const handleCommit = async () => {
     setIsCommitting(true);
     try {
@@ -226,11 +239,16 @@ export default function ImportPage() {
                 <p className="text-sm text-slate-600 mt-1">Review and resolve issues to proceed.</p>
               </div>
             </div>
-            {warningsCount > 0 && (
-              <Button onClick={handleApproveAllWarnings} variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50">
-                Approve all warnings
+            <div className="flex gap-2">
+              <Button onClick={handleAutoResolveAll} variant="secondary" className="bg-slate-200 hover:bg-slate-300 text-slate-800">
+                Auto-resolve all
               </Button>
-            )}
+              {warningsCount > 0 && (
+                <Button onClick={handleApproveAllWarnings} variant="outline" className="border-amber-300 text-amber-700 hover:bg-amber-50">
+                  Approve all warnings
+                </Button>
+              )}
+            </div>
           </div>
 
           <Card>
