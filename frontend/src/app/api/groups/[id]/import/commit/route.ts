@@ -27,9 +27,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // Insert everything in a transaction
     const results = await prisma.$transaction(async (tx) => {
-      const createdExpenses = [];
-
-      for (const row of rows) {
+      const createPromises = rows.map(async (row: any) => {
         // Find payer
         const paidByStr = String(row.paidBy).trim().toLowerCase();
         const payerMember = group.members.find(
@@ -38,7 +36,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
         if (!payerMember) {
           console.log(`Skipping row: Payer ${row.paidBy} not found`);
-          continue;
+          return null;
         }
 
         let amountInINR = row.amount;
@@ -64,12 +62,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
         if (activeMembers.length === 0) {
           console.log(`Skipping row: No active members for date ${date}`);
-          continue;
+          return null;
         }
 
         const splitAmount = amountInINR / activeMembers.length;
 
-        const expense = await tx.expense.create({
+        return tx.expense.create({
           data: {
             description: row.description || "Imported Expense",
             amount: amountInINR,
@@ -86,13 +84,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             }
           }
         });
+      });
 
-        createdExpenses.push(expense);
-      }
-
-      return createdExpenses;
+      const resultsArray = await Promise.all(createPromises);
+      return resultsArray.filter(e => e !== null);
     }, {
-      timeout: 30000,
+      timeout: 60000,
     });
 
     return NextResponse.json({ success: true, count: results.length });
