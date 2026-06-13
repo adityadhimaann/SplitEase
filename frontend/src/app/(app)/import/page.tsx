@@ -132,7 +132,7 @@ export default function ImportPage() {
             
             <div className="w-full max-w-sm mb-6 text-left">
               <label className="block text-sm font-medium text-slate-700 mb-2">Select Target Group</label>
-              <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+              <Select value={selectedGroupId} onValueChange={(v) => setSelectedGroupId(v || "")}>
                 <SelectTrigger>
                   <SelectValue placeholder="Choose a group..." />
                 </SelectTrigger>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -16,30 +16,33 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 
-export function CreateGroupButton() {
+export function AddMemberButton({ groupId }: { groupId: string }) {
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleCreate = async () => {
-    if (!name.trim()) return;
+  const handleAdd = async () => {
+    if (!email.trim()) return;
     setLoading(true);
 
     try {
-      const res = await fetch("/api/groups", {
+      const res = await fetch(`/api/groups/${groupId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ email }),
       });
       const data = await res.json();
       if (data.success) {
         setOpen(false);
-        setName("");
-        router.refresh(); // Refresh the Server Component
+        setEmail("");
+        router.refresh();
+      } else {
+        alert(data.error || "Failed to add member");
       }
     } catch (err) {
       console.error(err);
+      alert("An error occurred");
     } finally {
       setLoading(false);
     }
@@ -47,34 +50,34 @@ export function CreateGroupButton() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger className="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white h-10 px-4 py-2 rounded-md text-sm font-medium cursor-pointer">
-          <Plus className="h-4 w-4" />
-          Create Group
+      <DialogTrigger className="inline-flex items-center justify-center gap-2 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 rounded-md px-3 text-xs font-medium cursor-pointer">
+          <UserPlus className="h-4 w-4" /> Add Member
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create a New Group</DialogTitle>
+          <DialogTitle>Add Member</DialogTitle>
           <DialogDescription>
-            Start a new group to share expenses with friends, family, or coworkers.
+            Enter the email address of the user you want to add to this group.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Group Name
+            <Label htmlFor="email" className="text-right">
+              Email
             </Label>
             <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className="col-span-3"
-              placeholder="e.g. Goa Trip 2024"
+              placeholder="user@example.com"
             />
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={handleCreate} disabled={loading || !name.trim()} className="bg-indigo-600 hover:bg-indigo-700">
-            {loading ? "Creating..." : "Create Group"}
+          <Button onClick={handleAdd} disabled={loading || !email.trim()} className="bg-indigo-600 hover:bg-indigo-700">
+            {loading ? "Adding..." : "Add Member"}
           </Button>
         </DialogFooter>
       </DialogContent>

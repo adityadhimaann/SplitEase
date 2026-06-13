@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-export default function RootLayout({
+import { getCurrentUser } from "@/lib/auth";
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getCurrentUser();
+  
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <header className="border-b bg-white">
@@ -14,15 +18,17 @@ export default function RootLayout({
             SplitEase
           </Link>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-medium">
-                A
+            {user && (
+              <div className="flex items-center gap-2">
+                <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-medium">
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm font-medium">{user.name}</span>
               </div>
-              <span className="text-sm font-medium">Aisha</span>
-            </div>
-            <Link href="/login">
+            )}
+            <a href="/api/auth/logout">
               <Button variant="ghost" size="sm">Logout</Button>
-            </Link>
+            </a>
           </div>
         </div>
       </header>

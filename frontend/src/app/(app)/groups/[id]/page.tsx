@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { getGroupBalances } from "@/lib/algorithms/calculateBalances";
 import { redirect } from "next/navigation";
+import { AddMemberButton } from "@/components/AddMemberButton";
 
 export default async function GroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -167,9 +168,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
                   <CardTitle>Group Members</CardTitle>
                   <CardDescription>Manage who is in this group.</CardDescription>
                 </div>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <UserPlus className="h-4 w-4" /> Add Member
-                </Button>
+                <AddMemberButton groupId={group.id} />
               </CardHeader>
               <CardContent className="space-y-4">
                 {group.members.map((member, i) => {

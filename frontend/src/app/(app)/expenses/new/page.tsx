@@ -166,7 +166,7 @@ export default function AddExpensePage() {
             <div className="space-y-2">
               <Label htmlFor="amount">Amount</Label>
               <div className="flex">
-                <Select value={currency} onValueChange={(v) => setCurrency(v)}>
+                <Select value={currency} onValueChange={(v) => setCurrency(v || "INR")}>
                   <SelectTrigger className="w-[100px] rounded-r-none border-r-0 focus:ring-0">
                     <SelectValue placeholder="Currency" />
                   </SelectTrigger>
@@ -191,9 +191,11 @@ export default function AddExpensePage() {
 
             <div className="space-y-2">
               <Label htmlFor="group">Group</Label>
-              <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+              <Select value={selectedGroupId} onValueChange={(v) => setSelectedGroupId(v || "")}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select group" />
+                  <SelectValue placeholder="Select group">
+                    {groups.find(g => g.id === selectedGroupId)?.name}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {groups.map(g => (
@@ -205,9 +207,11 @@ export default function AddExpensePage() {
 
             <div className="space-y-2">
               <Label htmlFor="paidBy">Paid By</Label>
-              <Select value={paidById} onValueChange={setPaidById} disabled={!selectedGroupId}>
+              <Select value={paidById} onValueChange={(v) => setPaidById(v || "")} disabled={!selectedGroupId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select payer" />
+                  <SelectValue placeholder="Select payer">
+                    {activeMembers.find((m: any) => m.userId === paidById)?.user?.name}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {activeMembers.map((m: any) => (
