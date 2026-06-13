@@ -30,14 +30,21 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const analyzedRows = rows.map((row, index) => {
       const anomalies: string[] = [];
-      const date = new Date(row.Date);
-      let amountStr = String(row.Amount || "").replace(/,/g, '');
+      const csvDate = row.Date || row.date;
+      const csvAmount = row.Amount || row.amount;
+      const csvPaidBy = row.PaidBy || row.paid_by;
+      const csvCurrency = row.Currency || row.currency;
+      const csvDescription = row.Description || row.description;
+      const csvSplitType = row.SplitType || row.split_type;
+
+      const date = new Date(csvDate);
+      let amountStr = String(csvAmount || "").replace(/,/g, '');
       const hasDollar = amountStr.includes('$');
       if (hasDollar) amountStr = amountStr.replace('$', '');
       const amount = parseFloat(amountStr);
       
-      const currency = row.Currency || (hasDollar ? 'USD' : 'INR');
-      const paidByStr = String(row.PaidBy || "").trim().toLowerCase();
+      const currency = csvCurrency || (hasDollar ? 'USD' : 'INR');
+      const paidByStr = String(csvPaidBy || "").trim().toLowerCase();
       
       // Find member
       const member = group.members.find(
@@ -54,7 +61,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       // Check amount
       if (isNaN(amount)) {
-        anomalies.push(`Invalid amount: ${row.Amount}`);
+        anomalies.push(`Invalid amount: ${csvAmount}`);
       } else if (amount < 0) {
         anomalies.push(`Negative amount detected`);
       }
@@ -68,7 +75,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const isDuplicate = group.expenses.some(
         (e) => 
           e.amount === amount && 
-          e.description.toLowerCase() === String(row.Description || "").toLowerCase() &&
+          e.description.toLowerCase() === String(csvDescription || "").toLowerCase() &&
           new Date(e.date).toDateString() === date.toDateString()
       );
 
@@ -78,12 +85,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       return {
         id: index.toString(),
-        date: row.Date,
-        description: row.Description,
-        paidBy: row.PaidBy,
+        date: csvDate,
+        description: csvDescription,
+        paidBy: csvPaidBy,
         amount: amount || 0,
         currency,
-        splitType: row.SplitType || "EQUAL",
+        splitType: csvSplitType || "EQUAL",
         anomalies,
         status: anomalies.length > 0 ? "flagged" : "clean"
       };
