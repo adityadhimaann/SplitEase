@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { getGroupBalances } from "@/lib/algorithms/calculateBalances";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Upload, Users } from "lucide-react";
 import Link from "next/link";
@@ -28,36 +29,23 @@ export default async function DashboardPage() {
   let totalYouOwe = 0;
   let totalOwedToYou = 0;
 
-  const groupBalances = groups.map(group => {
-    let groupBalance = 0;
-    const groupExpenses = recentExpenses.filter(e => e.groupId === group.id);
+  const groupBalances = await Promise.all(groups.map(async (group) => {
+    const data = await getGroupBalances(group.id);
+    const myBalance = data?.balances.find(b => b.userId === user.id)?.balance || 0;
     
-    groupExpenses.forEach(expense => {
-      if (expense.payerId === user.id) {
-        // You paid, so you are owed money by others
-        expense.splits.forEach(split => {
-          if (split.userId !== user.id) {
-            totalOwedToYou += split.amountOwed;
-            groupBalance += split.amountOwed;
-          }
-        });
-      } else {
-        // Someone else paid, do you owe them?
-        const mySplit = expense.splits.find(s => s.userId === user.id);
-        if (mySplit) {
-          totalYouOwe += mySplit.amountOwed;
-          groupBalance -= mySplit.amountOwed;
-        }
-      }
-    });
+    if (myBalance > 0) {
+      totalOwedToYou += myBalance;
+    } else if (myBalance < 0) {
+      totalYouOwe += Math.abs(myBalance);
+    }
 
     return {
       ...group,
-      balance: groupBalance,
-      color: groupBalance > 0 ? "text-emerald-500" : groupBalance < 0 ? "text-rose-500" : "text-slate-500",
-      formattedBalance: groupBalance > 0 ? `+₹${groupBalance.toFixed(2)}` : groupBalance < 0 ? `-₹${Math.abs(groupBalance).toFixed(2)}` : "Settled"
+      balance: myBalance,
+      color: myBalance > 0 ? "text-emerald-500" : myBalance < 0 ? "text-rose-500" : "text-slate-500",
+      formattedBalance: myBalance > 0 ? `+₹${myBalance.toFixed(2)}` : myBalance < 0 ? `-₹${Math.abs(myBalance).toFixed(2)}` : "Settled"
     };
-  });
+  }));
 
   return (
     <div className="space-y-8">
