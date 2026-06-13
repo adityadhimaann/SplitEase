@@ -36,7 +36,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           (m) => m.user.email.toLowerCase() === paidByStr || m.user.name.toLowerCase() === paidByStr
         );
 
-        if (!payerMember) throw new Error(`Payer ${row.paidBy} not found`);
+        if (!payerMember) {
+          console.log(`Skipping row: Payer ${row.paidBy} not found`);
+          continue;
+        }
 
         let amountInINR = row.amount;
         if (row.currency.toUpperCase() === "USD") {
@@ -52,7 +55,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           return date >= joined && (!left || date <= left);
         });
 
-        if (activeMembers.length === 0) throw new Error("No active members to split the expense");
+        if (activeMembers.length === 0) {
+          console.log(`Skipping row: No active members for date ${date}`);
+          continue;
+        }
 
         const splitAmount = amountInINR / activeMembers.length;
 
